@@ -1,0 +1,680 @@
+save.image("C:/Users/u21844012/Desktop/BioOracle/PenguinModels.RData")
+load("C:/Users/u21844012/Desktop/BioOracle/Present/GentooModels.RData")
+
+setwd("C:/Users/u21844012/Desktop/BioOracle")
+
+install.packages("sdmpredictors")
+install.packages("leaflet")
+
+# Load package
+library(sdmpredictors)
+
+setwd("C:/Users/u21844012/Desktop/BioOracle/Present")
+
+install.packages("spocc") 
+#Abrir pacote
+library("spocc")
+library("raster")
+
+Sp<-read.csv("PenguinSpecies2.csv",header=TRUE)
+head(Sp)
+Temp<-raster("Present.Surface.Temperature.Mean.tif")
+Salin<-raster("Present.Surface.Salinity.Max.tif")
+Chloro<-raster("Present.Surface.Chlorophyll.Mean.tif")
+Veloc<-raster("Present.Surface.Current.Velocity.Mean.tif")
+Icecov<-raster("Present.Surface.Ice.cover.Mean.tif")
+Icethick<-raster("Present.Surface.Ice.thickness.Mean.tif")
+Phosp<-raster("Present.Surface.Phosphate.Mean.tif")
+Nitrat<-raster("Present.Surface.Nitrate.Mean.tif")
+Silic<-raster("Present.Surface.Silicate.Mean.tif")
+Iron<-raster("Present.Surface.Iron.Mean.tif")
+NPP<-raster("Present.Surface.Primary.productivity.Mean.tif")
+Oxigen<-raster("Present.Surface.Dissolved.oxygen.Max.tif")
+pH<-raster("Present.Surface.pH.tif.tif")
+Calci<-raster("Present.Surface.calcite.mean.tif.tif")
+
+FChloro <- raster("C:/Users/u21844012/Desktop/BioOracle/Future/2100/2100AOGCM.RCP85.Surface.Chlorophyll.Mean.tif")     
+FVeloc <- raster("C:/Users/u21844012/Desktop/BioOracle/Future/2100/2100AOGCM.RCP85.Surface.Current.Velocity.Mean.tif")
+Fsalin <- raster("C:/Users/u21844012/Desktop/BioOracle/Future/2100/2100AOGCM.RCP85.Surface.Salinity.Mean.tif")        
+FTemp <- raster("C:/Users/u21844012/Desktop/BioOracle/Future/2100/2100AOGCM.RCP85.Surface.Temperature.Mean.tif")   
+
+
+Dist<-raster("Distance/EuclDist_Coast.tif")
+Dist<- crop(Dist, temp)
+
+table.niche <- matrix(nrow=nrow(Sp),ncol=14)
+colnames(table.niche) <- c('Mveloerature', 'MSalinity', 'Velocity', 'Chlorophyll', 'IceCover', 'IceThickness', 'Phosphate', 'Nitrate', 'Silicate', 'Iron', 'NetPrimaryProductivity', 'DissolvedOxygen', 'pH', 'Calcite')
+nrow(table.niche)
+head(table.niche)
+
+
+
+for (i in 1:length(Sp[,1])) {
+  tryCatch({
+    sp<-as.character(Sp[i,1])
+    res <- occ(query = sp, from = 'gbif',limit=10000, has_coords=T)
+    locs<-occ2df(res)
+    locs2<-locs[,2:3]
+    locs2[locs2 == 0] <- NA
+    locs3<-locs2[complete.cases(locs2),]
+    locs4<-round(locs3, digits = 2)
+    locs5<-locs4[!duplicated(locs4), ]
+    Allvelo <-extract(velo, locs5[,1:2])
+    AllSalin <-extract(Salin, locs5[,1:2])
+    AllChloro <-extract(Chloro, locs5[,1:2])
+    AllVeloc <-extract(Veloc, locs5[,1:2])
+    AllIcecov <-extract(Icecov, locs5[,1:2])
+    AllIcethick <-extract(Icethick, locs5[,1:2])
+    AllPhosp <-extract(Phosp, locs5[,1:2])
+    AllNitrat <-extract(Nitrat, locs5[,1:2])
+    AllSilic <-extract(Silic, locs5[,1:2])
+    AllIron <-extract(Iron, locs5[,1:2])
+    AllNPP <-extract(NPP, locs5[,1:2])
+    AllOxigen <-extract(Oxigen, locs5[,1:2])
+    AllpH <-extract(pH, locs5[,1:2])
+    AllCalci <-extract(Calci, locs5[,1:2])
+    table.niche[i,1] <- mean(Allvelo, na.rm=TRUE)
+    table.niche[i,2] <- mean(AllSalin, na.rm=TRUE)
+    table.niche[i,3] <- mean(AllChloro, na.rm=TRUE)
+    table.niche[i,4] <- mean(AllVeloc, na.rm=TRUE)
+    table.niche[i,5] <- mean(AllIcecov, na.rm=TRUE)
+    table.niche[i,6] <- mean(AllIcethick, na.rm=TRUE)
+    table.niche[i,7] <- mean(AllPhosp, na.rm=TRUE)
+    table.niche[i,8] <- mean(AllNitrat, na.rm=TRUE)
+    table.niche[i,9] <- mean(AllSilic, na.rm=TRUE)
+    table.niche[i,10] <- mean(AllIron, na.rm=TRUE)
+    table.niche[i,11] <- mean(AllNPP, na.rm=TRUE)
+    table.niche[i,12] <- mean(AllOxigen, na.rm=TRUE)
+    table.niche[i,13] <- mean(AllpH, na.rm=TRUE)
+    table.niche[i,14] <- mean(AllCalci, na.rm=TRUE)
+  }, error=function(e){cat("ERROR :",conditionMessage(e), "\n")})
+}
+
+SpClimate<-cbind(Sp,table.niche)
+write.csv(SpClimate, "SpProfiles2.csv")
+
+
+
+
+setwd("C:/Users/u21844012/Desktop/BioOracle")
+
+require(raster) 
+require(ENMTools)
+require(corrplot)
+current.list <- list.files(path="C:/Users/u21844012/Desktop/BioOracle/Present", 
+                           pattern =".tif", full.names=TRUE)
+c.stack<- stack(current.list)
+
+#c.stack2 <- merge(c.stack, Dist)
+
+#raster.cor.plot(c.stack, method = "pearson")
+
+studyArea = extent(-180,180,-80,-30)
+SOArea <- crop(c.stack, studyArea)
+#plot(SOArea[[1]])
+
+#raster.cor.plot(SOArea, method = "pearson")
+##corrplot(SOArea, method = "circle")
+
+studyAreaC1.1 = extent(30,60,-55,-35)
+SOAreaC1.1 <- crop(c.stack, studyAreaC1.1)
+#plot(SOAreaC1.1[[4]])
+
+Dist1.1 <- crop(Dist, studyAreaC1.1)
+#plot(Dist1.1[[1]])
+
+SOArea1.1 <- addLayer(SOAreaC1.1, Dist1.1)
+
+studyAreaC1.2 = extent(150,170,-58,-48)
+SOAreaC1.2 <- crop(c.stack, studyAreaC1.2)
+#plot(SOAreaC1.2[[10]])
+
+Dist1.2 <- crop(Dist, studyAreaC1.2)
+#plot(Dist1.2[[1]])
+SOArea1.2 <- addLayer(SOAreaC1.2, Dist1.2)
+
+studyAreaC2 = extent(55,85,-60,-40)
+SOAreaC2 <- crop(c.stack, studyAreaC2)
+#plot(SOAreaC2[[10]])
+
+Dist2 <- crop(Dist, studyAreaC2)
+#plot(Dist2[[1]])
+SOArea2 <- addLayer(SOAreaC2, Dist2)
+
+studyAreaC3.1 = extent(-50,-20,-65,-50)
+SOAreaC3.1 <- crop(c.stack, studyAreaC3.1)
+#plot(SOAreaC3.1[[10]])
+
+Dist3.1 <- crop(Dist, studyAreaC3.1)
+#plot(Dist3.1[[1]])
+SOArea3.1 <- addLayer(SOAreaC3.1, Dist3.1)
+
+studyAreaC3.2 = extent(-77,-50,-77,-57)
+SOAreaC3.2 <- crop(c.stack, studyAreaC3.2)
+#plot(SOAreaC3.2[[10]])
+
+Dist3.2 <- crop(Dist, studyAreaC3.2)
+#plot(Dist3.2[[1]])
+SOArea3.2 <- addLayer(SOAreaC3.2, Dist3.2)
+
+studyAreaC4 = extent(-73,-50,-57,-47)
+SOAreaC4 <- crop(c.stack, studyAreaC4)
+#plot(SOAreaC4[[10]])
+
+Dist4 <- crop(Dist, studyAreaC4)
+#plot(Dist4[[1]])
+SOArea4 <- addLayer(SOAreaC4, Dist4)
+
+SOArea1 <- mosaic(SOArea1.1, SOArea1.2, fun=mean)
+names(SOArea1) <- c("Chlorophyll", "Velocity", "Salinity", "Temperature", "CoastDist")
+SOArea2
+names(SOArea2) <- c("Chlorophyll", "Velocity", "Salinity", "Temperature", "CoastDist")
+SOArea3 <- mosaic(SOArea3.1, SOArea3.2, fun=mean)
+names(SOArea3) <- c("Chlorophyll", "Velocity", "Salinity", "Temperature", "CoastDist")
+SOArea4
+names(SOArea4) <- c("Chlorophyll", "Velocity", "Salinity", "Temperature", "CoastDist")
+
+plot(SOArea2$Chlorophyll)
+plot(SOArea2$CoastDist)
+dim(SOArea2$Chlorophyll)
+dim(SOArea2$CoastDist)
+
+plot(Papuarecords, add=TRUE)
+
+
+
+
+
+setwd("C:/Users/u21844012/Desktop/BioOracle/Present")
+##OCCURRENCE DATA
+Papuarecords <-read.csv("Pygoscelis papua.csv",header=TRUE)
+#Papuarecords <- Papuarecords[,2:3]
+#Papuarecords <- read.csv("filteredrecords.csv")
+
+# make occurence dataset spatial
+Papuarecords$longitude = as.numeric(Papuarecords$longitude)
+Papuarecords$latitude = as.numeric(Papuarecords$latitude)
+coordinates(Papuarecords) <- ~longitude + latitude
+
+plot(Dist4[[1]])
+plot(Papuarecords, add=TRUE)
+
+#rasValue=extract(SOArea, Papuarecords)
+#combinePointValue=cbind(Papuarecords,rasValue)
+#write.csv(combinePointValue, "combinedPointValue.csv", append=FALSE, sep= ",", row.names = FALSE, col.names=TRUE)
+
+#rasValue2=extract(Dist, Papuarecords)
+#combinePointValue2=cbind(Papuarecords,rasValue2)
+#write.csv(combinePointValue2, "combinedPointValue2.csv", append=FALSE, sep= ",", row.names = FALSE, col.names=TRUE)
+
+v1 <- extract(SOArea1, Papuarecords)
+i1 <- which(apply(is.na(v1), 1,  sum) > 0)
+Gentoorecords1 <- Papuarecords[-i1, ]
+
+v2 <- extract(SOArea2, Papuarecords)
+i2 <- which(apply(is.na(v2), 1,  sum) > 0)
+Gentoorecords2 <- Papuarecords[-i2, ]
+
+v3 <- extract(SOArea3, Papuarecords)
+i3 <- which(apply(is.na(v3), 1,  sum) > 0)
+Gentoorecords3 <- Papuarecords[-i3, ]
+
+v4 <- extract(SOArea4, Papuarecords)
+i4 <- which(apply(is.na(v4), 1,  sum) > 0)
+Gentoorecords4 <- Papuarecords[-i4, ]
+
+
+bg1 <- sampleRandom(x=SOArea1, #Random sampling at the extent of the study area but sampleRandom requires a raster object input - so using the climate data already clipped to the study area is fine
+                   size=10000, #select 10000 random background points
+                   na.rm=T, #removes the 'Not Applicable' points  
+                   sp=T) # return spatial points 
+
+bg2 <- sampleRandom(x=SOArea2, #Random sampling at the extent of the study area but sampleRandom requires a raster object input - so using the climate data already clipped to the study area is fine
+                    size=10000, #select 10000 random background points
+                    na.rm=T, #removes the 'Not Applicable' points  
+                    sp=T) # return spatial points 
+
+bg3 <- sampleRandom(x=SOArea3, #Random sampling at the extent of the study area but sampleRandom requires a raster object input - so using the climate data already clipped to the study area is fine
+                    size=10000, #select 10000 random background points
+                    na.rm=T, #removes the 'Not Applicable' points  
+                    sp=T) # return spatial points 
+
+bg4 <- sampleRandom(x=SOArea4, #Random sampling at the extent of the study area but sampleRandom requires a raster object input - so using the climate data already clipped to the study area is fine
+                    size=10000, #select 10000 random background points
+                    na.rm=T, #removes the 'Not Applicable' points  
+                    sp=T) # return spatial points 
+
+#write.table(Gentoorecords1, "Gentoorecords1.csv")
+Gentoorecords1 <- read.csv("Gentoorecords1.csv", header =  T)
+Gentoorecords1$Longitude = as.numeric(Gentoorecords1$Longitude)
+Gentoorecords1$Latitude = as.numeric(Gentoorecords1$Latitude)
+coordinates(Gentoorecords1) <- ~Longitude + Latitude
+
+plot(SOArea1$Temperature)
+
+presence_vals1 = extract(SOArea1, Gentoorecords1)
+background_vals1 = extract(SOArea1, bg1)
+presence_vals2 = extract(SOArea2, Gentoorecords2)
+background_vals2 = extract(SOArea2, bg2)
+presence_vals3 = extract(SOArea3, Gentoorecords3)
+background_vals3 = extract(SOArea3, bg3)
+presence_vals4 = extract(SOArea4, Gentoorecords4)
+background_vals4 = extract(SOArea4, bg4)
+
+
+Gentoorecords1
+Gentoorecords2
+Gentoorecords3
+Gentoorecords4
+
+###MODELLING
+
+library('raster')
+library('dismo')
+library('rgeos')
+library('rgdal')
+library('sp')
+library('ENMeval')
+library('rJava')
+
+model1 <- maxent(x=SOArea1, ## env conditions
+                 p=Gentoorecords1,   ## 1:logistic model
+                 nbg = 10000,
+                 path=paste0("Results/model1"), ## folder for maxent output; 
+                 # if we do not specify a folder R will put the results in a velo file, 
+                 # and it gets messy to read those. . .
+                 args=c('randomtestpoints=30', #70% training, 30% testing
+                        'betamultiplier=1', 
+                        'linear=true', 
+                        'quadratic=true', 
+                        'product=true', 
+                        'threshold=true', 
+                        'hinge=true', 
+                        'threads=2', 
+                        'responsecurves=true', 
+                        'jackknife=true', 
+                        'askoverwrite=false') ## parameter specification
+)
+
+
+
+
+plot(model1)
+response(model1)
+
+mod_eval <- dismo::evaluate(p = presence_vals1, a = background_vals1, model = model1)
+mod_eval
+plot(mod_eval, 'ROC')
+
+pred1 <- predict(model1, SOArea1, na.rm=TRUE, format='GTiff',
+                 filename= "Results/Clade1", overwrite=TRUE,
+                 progress='text')  
+plot(pred1)
+
+
+##KERGUELEN
+
+model2 <- maxent(x=SOArea2, ## env conditions
+                 p=Gentoorecords2,   ## 1:logistic model
+                 nbg = 10000,
+                 path=paste0("Results/model2"), ## folder for maxent output; 
+                 # if we do not specify a folder R will put the results in a velo file, 
+                 # and it gets messy to read those. . .
+                 args=c('randomtestpoints=30', #70% training, 30% testing
+                        'betamultiplier=1', 
+                        'linear=true', 
+                        'quadratic=true', 
+                        'product=true', 
+                        'threshold=true', 
+                        'hinge=true', 
+                        'threads=2', 
+                        'responsecurves=true', 
+                        'jackknife=true', 
+                        'askoverwrite=false') ## parameter specification
+)
+
+
+
+
+plot(model2)
+response(model2)
+
+mod_eval <- dismo::evaluate(p = presence_vals2, a = background_vals2, model = model2)
+mod_eval
+plot(mod_eval, 'ROC')
+
+pred2 <- predict(model2, SOArea2, na.rm=TRUE, format='GTiff',
+                 filename= "Results/Clade2", overwrite=TRUE,
+                 progress='text')  
+plot(pred2)
+
+#ANTARCTIC
+
+model3 <- maxent(x=SOArea3, ## env conditions
+                 p=Gentoorecords3,   ## 1:logistic model
+                 nbg = 10000,
+                 path=paste0("Results/model3"), ## folder for maxent output; 
+                 # if we do not specify a folder R will put the results in a velo file, 
+                 # and it gets messy to read those. . .
+                 args=c('randomtestpoints=30', #70% training, 30% testing
+                        'betamultiplier=1', 
+                        'linear=true', 
+                        'quadratic=true', 
+                        'product=true', 
+                        'threshold=true', 
+                        'hinge=true', 
+                        'threads=2', 
+                        'responsecurves=true', 
+                        'jackknife=true', 
+                        'askoverwrite=false') ## parameter specification
+)
+
+
+
+
+plot(model3)
+response(model3)
+
+mod_eval <- dismo::evaluate(p = presence_vals3, a = background_vals3, model = model3)
+mod_eval
+plot(mod_eval, 'ROC')
+
+pred3 <- predict(model3, SOArea3, na.rm=TRUE, format='GTiff',
+                 filename= "Results/Clade3", overwrite=TRUE,
+                 progress='text')  
+plot(pred3)
+
+##AMERICAN
+
+model4 <- maxent(x=SOArea4, ## env conditions
+                 p=Gentoorecords4,   ## 1:logistic model
+                 nbg = 10000,
+                 path=paste0("Results/modelc4"), ## folder for maxent output; 
+                 # if we do not specify a folder R will put the results in a velo file, 
+                 # and it gets messy to read those. . .
+                 args=c('randomtestpoints=30', #70% training, 30% testing
+                        'betamultiplier=1', 
+                        'linear=true', 
+                        'quadratic=true', 
+                        'product=true', 
+                        'threshold=true', 
+                        'hinge=true', 
+                        'threads=2', 
+                        'responsecurves=true', 
+                        'jackknife=true', 
+                        'askoverwrite=false') ## parameter specification
+)
+
+
+
+
+plot(model4)
+response(model4)
+#save.image(model4, filename="variable_contribution_model4.tiff")
+#pdf(file="VariableContribution_Clade4.pdf")
+#jpeg(file="VariableContribution_Clade4.jpeg")
+
+savePlot(filename = "VC4", type = c("pdf"), device = dev.cur(), # Number of the device to be saved
+         restoreConsole = TRUE)
+
+dev.print(VC4, "Variable_contributionC4.pdf")
+
+save.image
+
+mod_eval <- dismo::evaluate(p = presence_vals4, a = background_vals4, model = model4)
+mod_eval
+plot(mod_eval, 'ROC')
+
+pred4 <- predict(model4, SOArea4, na.rm=TRUE, format='GTiff',
+                 filename= "Results/Clade4", overwrite=TRUE,
+                 progress='text')  
+
+
+
+###FUTURE
+
+
+studyArea = extent(-180,180,-80,-30)
+FChloroSO <- crop(FChloro, studyArea)
+FTempSO <- crop(FTemp, FChloroSO)
+FSalinSO <- crop(Fsalin, FChloroSO)
+FVelocSO <- crop(FVeloc, FChloroSO)
+
+c.stack <- stack(FTempSO, FSalinSO, FVelocSO, FChloroSO)
+
+#c.stack2 <- merge(c.stack, Dist)
+
+#raster.cor.plot(c.stack, method = "pearson")
+
+#studyArea = extent(-180,180,-80,-30)
+#SOArea <- crop(c.stack, studyArea)
+#plot(SOArea[[1]])
+
+#raster.cor.plot(SOArea, method = "pearson")
+##corrplot(SOArea, method = "circle")
+
+studyAreaC1.1 = extent(30,60,-55,-35)
+SOAreaC1.1 <- crop(c.stack, studyAreaC1.1)
+#plot(SOAreaC1.1[[4]])
+
+Dist1.1 <- crop(Dist, studyAreaC1.1)
+#plot(Dist1.1[[1]])
+
+SOArea1.1 <- addLayer(SOAreaC1.1, Dist1.1)
+
+studyAreaC1.2 = extent(150,170,-58,-48)
+SOAreaC1.2 <- crop(c.stack, studyAreaC1.2)
+#plot(SOAreaC1.2[[10]])
+
+Dist1.2 <- crop(Dist, studyAreaC1.2)
+#plot(Dist1.2[[1]])
+SOArea1.2 <- addLayer(SOAreaC1.2, Dist1.2)
+
+studyAreaC2 = extent(55,85,-60,-40)
+SOAreaC2 <- crop(c.stack, studyAreaC2)
+#plot(SOAreaC2[[10]])
+
+Dist2 <- crop(Dist, studyAreaC2)
+#plot(Dist2[[1]])
+SOArea2f <- addLayer(SOAreaC2, Dist2)
+
+studyAreaC3.1 = extent(-50,-20,-65,-50)
+SOAreaC3.1 <- crop(c.stack, studyAreaC3.1)
+#plot(SOAreaC3.1[[10]])
+
+Dist3.1 <- crop(Dist, studyAreaC3.1)
+#plot(Dist3.1[[1]])
+SOArea3.1 <- addLayer(SOAreaC3.1, Dist3.1)
+
+studyAreaC3.2 = extent(-77,-50,-77,-57)
+SOAreaC3.2 <- crop(c.stack, studyAreaC3.2)
+#plot(SOAreaC3.2[[10]])
+
+Dist3.2 <- crop(Dist, studyAreaC3.2)
+#plot(Dist3.2[[1]])
+SOArea3.2 <- addLayer(SOAreaC3.2, Dist3.2)
+
+studyAreaC4 = extent(-73,-50,-57,-47)
+SOAreaC4 <- crop(c.stack, studyAreaC4)
+#plot(SOAreaC4[[1]])
+
+Dist4 <- crop(Dist, studyAreaC4)
+#plot(Dist4[[1]])
+SOArea4f <- addLayer(SOAreaC4, Dist4)
+
+SOArea1f <- mosaic(SOArea1.1, SOArea1.2, fun=mean)
+names(SOArea1f) <- c("Temperature", "Salinity", "Velocity", "Chlorophyll", "CoastDist")
+SOArea2f
+names(SOArea2f) <- c("Temperature", "Salinity", "Velocity", "Chlorophyll", "CoastDist")
+SOArea3f <- mosaic(SOArea3.1, SOArea3.2, fun=mean)
+names(SOArea3f) <- c("Temperature", "Salinity", "Velocity", "Chlorophyll", "CoastDist")
+SOArea4f
+names(SOArea4f) <- c("Temperature", "Salinity", "Velocity", "Chlorophyll", "CoastDist")
+
+pred1f <- predict(model1, SOArea1f, na.rm=TRUE, format='GTiff',
+                 filename= "Results/Clade1future", overwrite=TRUE,
+                 progress='text')  
+plot(pred1f)
+
+pred2f <- predict(model2, SOArea2f, na.rm=TRUE, format='GTiff',
+                  filename= "Results/Clade2future", overwrite=TRUE,
+                  progress='text')  
+plot(pred2f)
+
+pred3f <- predict(model3, SOArea3f, na.rm=TRUE, format='GTiff',
+                  filename= "Results/Clade3future", overwrite=TRUE,
+                  progress='text')  
+plot(pred3f)
+
+pred4f <- predict(model4, SOArea4f, na.rm=TRUE, format='GTiff',
+                  filename= "Results/Clade4future", overwrite=TRUE,
+                  progress='text')  
+plot(pred4f)
+
+#thd1 <- threshold(mod_eval, "spec_sens")  
+#plot(pred4 >= thd1)
+
+
+
+plot(pred1)
+plot(pred1f)
+plot(Gentoorecords1, add=TRUE)
+
+plot(SOArea3[[1]])
+plot(SOArea3f[[1]])
+
+DistF<-raster("Distance/EucDist1.tif")
+DistF<- crop(DistF, velo)
+plot(DistF)
+
+Trend1 <- pred1f - pred1
+plot(Trend1)
+DistCrop1 <- crop(DistF, Trend1)
+ColonyTrend1 <- mask(Trend1, DistCrop1)
+plot(ColonyTrend1)
+plot(Gentoorecords1, add=TRUE)
+cellStats(ColonyTrend1, stat='mean', na.rm=TRUE, asSample=TRUE)
+
+Trend2 <- pred2f - pred2
+plot(Trend2)
+DistCrop2 <- crop(DistF, Trend2)
+ColonyTrend2 <- mask(Trend2, DistCrop2)
+plot(ColonyTrend2)
+cellStats(ColonyTrend2, stat='mean', na.rm=TRUE, asSample=TRUE)
+
+Trend3 <- pred3f - pred3
+plot(Trend3)
+DistCrop3 <- crop(DistF, Trend3)
+ColonyTrend3 <- mask(Trend3, DistCrop3)
+plot(ColonyTrend3)
+cellStats(ColonyTrend3, stat='mean', na.rm=TRUE, asSample=TRUE)
+
+Trend4 <- pred4f - pred4
+plot(Trend4)
+DistCrop4 <- crop(DistF, Trend4)
+ColonyTrend4 <- mask(Trend4, DistCrop4)
+plot(ColonyTrend4)
+cellStats(ColonyTrend4, stat='mean', na.rm=TRUE, asSample=TRUE)
+
+writeRaster(ColonyTrend1, "TClade1rev.tif", overwrite=TRUE)
+writeRaster(ColonyTrend2, "TClade2.tif")
+writeRaster(ColonyTrend3, "TClade3.tif")
+writeRaster(ColonyTrend4, "TClade4.tif")
+
+SOArea1
+SOArea1f
+plot(SOArea1)
+
+pdf("ColonyTrend1.pdf")
+pdf("ColonyTrend2.pdf")
+pdf("ColonyTrend3.pdf")
+pdf("ColonyTrend4.pdf")
+par(mfrow = c(2, 2))
+plot(ColonyTrend1)
+plot(ColonyTrend2)
+plot(ColonyTrend3)
+plot(ColonyTrend4)
+text
+dev.off()
+
+
+setwd("C:/Users/u21844012/Desktop/BioOracle/Future/2100/short")
+velof<-raster("velof.tif")
+Salinf<-raster("salinf.tif")
+Chlorof<-raster("chlorof.tif")
+Velocf<-raster("velof.tif")
+
+velof1 <- crop(velof, SOArea1)
+velof2 <- crop(velof, SOArea2)
+velof3 <- crop(velof, SOArea3)
+velof4 <- crop(velof, SOArea4)
+
+salinf1 <- crop(Salinf, SOArea1)
+salinf2 <- crop(Salinf, SOArea2)
+salinf3 <- crop(Salinf, SOArea3)
+salinf4 <- crop(Salinf, SOArea4)
+
+chlorof1 <- crop(Chlorof, SOArea1)
+chlorof2 <- crop(Chlorof, SOArea2)
+chlorof3 <- crop(Chlorof, SOArea3)
+chlorof4 <- crop(Chlorof, SOArea4)
+
+velof1 <- crop(Velocf, SOArea1)
+velof2 <- crop(Velocf, SOArea2)
+velof3 <- crop(Velocf, SOArea3)
+velof4 <- crop(Velocf, SOArea4)
+
+
+plot(velof1)
+plot(velof2)
+plot(velof3)
+plot(velof4)
+
+Tf1 <- writeRaster(velof1, filename='velo1f.asc', format="ascii", overwrite=TRUE)  
+Tf2 <- writeRaster(velof2, filename='velo2f.asc', format="ascii", overwrite=TRUE)  
+Tf3 <- writeRaster(velof3, filename='velo3f.asc', format="ascii", overwrite=TRUE)  
+Tf4 <- writeRaster(velof4, filename='velo4f.asc', format="ascii", overwrite=TRUE)
+
+Sf1 <- writeRaster(salinf1, filename='salin1f.asc', format="ascii", overwrite=TRUE)  
+Sf2 <- writeRaster(salinf2, filename='salin2f.asc', format="ascii", overwrite=TRUE)  
+Sf3 <- writeRaster(salinf3, filename='salin3f.asc', format="ascii", overwrite=TRUE)  
+Sf4 <- writeRaster(salinf4, filename='salin4f.asc', format="ascii", overwrite=TRUE)
+
+Chl1 <- writeRaster(chlorof1, filename='chloro1f.asc', format="ascii", overwrite=TRUE)  
+Chl2 <- writeRaster(chlorof2, filename='chloro2f.asc', format="ascii", overwrite=TRUE)  
+Chl3 <- writeRaster(chlorof3, filename='chloro3f.asc', format="ascii", overwrite=TRUE)  
+Chl4 <- writeRaster(chlorof4, filename='chloro4f.asc', format="ascii", overwrite=TRUE)
+
+Vel1 <- writeRaster(velof1, filename='velo1f.asc', format="ascii", overwrite=TRUE)  
+Vel2 <- writeRaster(velof2, filename='velo2f.asc', format="ascii", overwrite=TRUE)  
+Vel3 <- writeRaster(velof3, filename='velo3f.asc', format="ascii", overwrite=TRUE)  
+Vel4 <- writeRaster(velof4, filename='velo4f.asc', format="ascii", overwrite=TRUE)
+
+A1 <- writeRaster(SOArea1, filename='A1grid.grd', format="raster", overwrite=TRUE)  
+A2 <- writeRaster(SOArea2, filename='A2grid.grd', format="raster", overwrite=TRUE)  
+A3 <- writeRaster(SOArea3, filename='A3grid.grd', format="raster", overwrite=TRUE)  
+A4 <- writeRaster(SOArea4, filename='A4grid.grd', format="raster", overwrite=TRUE)  
+
+T1 <- writeRaster(SOArea1$Temoerature, filename='temp1.asc', format="ascii", overwrite=TRUE)  
+S1 <- writeRaster(SOArea1$Salinity, filename='Sal1.asc', format="ascii", overwrite=TRUE)  
+V1 <- writeRaster(SOArea1$Velocity, filename='Vel1.asc', format="ascii", overwrite=TRUE)  
+CL1 <- writeRaster(SOArea1$Chlorophyll, filename='Chl1.asc', format="ascii", overwrite=TRUE)  
+CD1 <- writeRaster(SOArea1$CoastDist, filename='Dist1.asc', format="ascii", overwrite=TRUE) 
+
+T2 <- writeRaster(SOArea2$veloerature, filename='Temp2.asc', format="ascii", overwrite=TRUE)  
+S2 <- writeRaster(SOArea2$Salinity, filename='Sal2.asc', format="ascii", overwrite=TRUE)  
+V2 <- writeRaster(SOArea2$Velocity, filename='Vel2.asc', format="ascii", overwrite=TRUE)  
+CL2 <- writeRaster(SOArea2$Chlorophyll, filename='Chl2.asc', format="ascii", overwrite=TRUE)  
+CD2 <- writeRaster(SOArea2$CoastDist, filename='Dist2.asc', format="ascii", overwrite=TRUE) 
+
+T3 <- writeRaster(SOArea3$veloerature, filename='temp3.asc', format="ascii", overwrite=TRUE)  
+S3 <- writeRaster(SOArea3$Salinity, filename='Sal3.asc', format="ascii", overwrite=TRUE)  
+V3 <- writeRaster(SOArea3$Velocity, filename='Vel3.asc', format="ascii", overwrite=TRUE)  
+CL3 <- writeRaster(SOArea3$Chlorophyll, filename='Chl3.asc', format="ascii", overwrite=TRUE)  
+CD3 <- writeRaster(SOArea3$CoastDist, filename='Dist3.asc', format="ascii", overwrite=TRUE) 
+
+T4 <- writeRaster(SOArea4$veloerature, filename='temp4.asc', format="ascii", overwrite=TRUE)  
+S4 <- writeRaster(SOArea4$Salinity, filename='Sal4.asc', format="ascii", overwrite=TRUE)  
+V4 <- writeRaster(SOArea4$Velocity, filename='Vel4.asc', format="ascii", overwrite=TRUE)  
+CL4 <- writeRaster(SOArea4$Chlorophyll, filename='Chl4.asc', format="ascii", overwrite=TRUE)  
+CD4 <- writeRaster(SOArea4$CoastDist, filename='Dist4.asc', format="ascii", overwrite=TRUE) 
